@@ -1,3 +1,14 @@
+"""
+Prompt templates for the Planning Agent in the OpenManus framework.
+
+This module defines the system prompt and next step templates that establish
+the identity, capabilities, and behavior of a specialized Planning Agent.
+These prompts create a structured, methodical agent focused on breaking down
+complex tasks into manageable plans and executing them efficiently.
+"""
+
+# The system prompt that establishes the Planning Agent's identity, responsibilities, and approach
+# This prompt creates a specialized agent focused on structured problem-solving through planning
 PLANNING_SYSTEM_PROMPT = """
 You are an expert Planning Agent tasked with solving problems efficiently through structured plans.
 Your job is:
@@ -16,6 +27,8 @@ Think about dependencies and verification methods.
 Know when to conclude - don't continue thinking once objectives are met.
 """
 
+# The next step prompt guides the Planning Agent's decision-making process at each interaction
+# This prompt encourages efficiency, focus on the current state, and appropriate tool selection
 NEXT_STEP_PROMPT = """
 Based on the current state, what's your next action?
 Choose the most efficient path forward:

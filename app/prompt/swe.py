@@ -1,3 +1,12 @@
+"""
+Prompt templates for the Software Engineering (SWE) agent in the OpenManus framework.
+
+This module defines the system prompt and response templates used to guide the
+behavior of an LLM when acting as an autonomous programmer. These prompts establish
+the constraints, capabilities, and expected interaction patterns for the agent.
+"""
+
+# The system prompt that establishes the agent's role, capabilities, and constraints
 SYSTEM_PROMPT = """SETTING: You are an autonomous programmer, and you're working directly in the command line with a special interface.
 
 The special interface consists of a file editor that shows you {{WINDOW}} lines of a file at a time.
@@ -21,6 +30,8 @@ If you'd like to issue two commands at once, PLEASE DO NOT DO THAT! Please inste
 Note that the environment does NOT support interactive session commands (e.g. python, vim), so please do not invoke them.
 """
 
+# Template for each subsequent interaction step after the initial system prompt
+# This template is filled with the current state information before being sent to the LLM
 NEXT_STEP_TEMPLATE = """{{observation}}
 (Open file: {{open_file}})
 (Current directory: {{working_dir}})

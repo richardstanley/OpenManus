@@ -21,15 +21,42 @@ from app.schema import (
 )
 
 
+# Models that have enhanced reasoning capabilities
 REASONING_MODELS = ["o1", "o3-mini"]
 
 
 class LLM:
+    """
+    Language Learning Model interface for interacting with various LLM providers.
+    
+    This class provides a unified interface for making requests to different
+    language model providers (OpenAI, Azure OpenAI, etc.) with support for
+    various features like tool calling, streaming responses, and retry logic.
+    
+    The class uses a singleton pattern per configuration name to ensure
+    efficient resource usage and consistent configuration across the application.
+    """
+    
+    # Dictionary to store singleton instances by configuration name
     _instances: Dict[str, "LLM"] = {}
 
     def __new__(
         cls, config_name: str = "default", llm_config: Optional[LLMSettings] = None
     ):
+        """
+        Create or retrieve a singleton LLM instance for the given configuration.
+        
+        This method implements the singleton pattern, ensuring that only one
+        LLM instance exists per configuration name, which helps with resource
+        management and consistency.
+        
+        Args:
+            config_name: Name of the configuration to use (maps to config sections)
+            llm_config: Optional explicit LLM configuration to use instead of loading from config
+            
+        Returns:
+            LLM: The singleton LLM instance for the given configuration
+        """
         if config_name not in cls._instances:
             instance = super().__new__(cls)
             instance.__init__(config_name, llm_config)
@@ -39,9 +66,23 @@ class LLM:
     def __init__(
         self, config_name: str = "default", llm_config: Optional[LLMSettings] = None
     ):
+        """
+        Initialize the LLM instance with configuration settings.
+        
+        This method sets up the LLM client with the appropriate configuration,
+        either from the provided explicit config or from the application's
+        configuration system.
+        
+        Args:
+            config_name: Name of the configuration to use (maps to config sections)
+            llm_config: Optional explicit LLM configuration to use instead of loading from config
+        """
         if not hasattr(self, "client"):  # Only initialize if not already initialized
+            # Load configuration from provided config or from application config
             llm_config = llm_config or config.llm
             llm_config = llm_config.get(config_name, llm_config["default"])
+            
+            # Store configuration parameters
             self.model = llm_config.model
             self.max_tokens = llm_config.max_tokens
             self.temperature = llm_config.temperature

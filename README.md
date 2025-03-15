@@ -5,83 +5,146 @@ English | [中文](README_zh.md) | [한국어](README_ko.md) | [日本語](READM
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) &ensp;
 [![Discord Follow](https://dcbadge.vercel.app/api/server/DYn29wFk9z?style=flat)](https://discord.gg/DYn29wFk9z)
 
-# 👋 OpenManus
+# OpenManus
 
-Manus is incredible, but OpenManus can achieve any idea without an *Invite Code* 🛫!
+OpenManus is an open-source framework for building versatile AI agents capable of solving complex tasks using multiple tools and planning capabilities.
 
-Our team members [@Xinbin Liang](https://github.com/mannaandpoem) and [@Jinyu Xiang](https://github.com/XiangJinyu) (core authors), along with [@Zhaoyang Yu](https://github.com/MoshiQAQ), [@Jiayi Zhang](https://github.com/didiforgithub), and [@Sirui Hong](https://github.com/stellaHSR), we are from [@MetaGPT](https://github.com/geekan/MetaGPT). The prototype is launched within 3 hours and we are keeping building!
+## Table of Contents
 
-It's a simple implementation, so we welcome any suggestions, contributions, and feedback!
+- [Architecture Overview](#architecture-overview)
+- [Key Components](#key-components)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Quick Start](#quick-start)
+- [How It Works](#how-it-works)
+- [Available Tools](#available-tools)
+- [Examples](#examples)
+- [Contributing](#contributing)
+- [License](#license)
 
-Enjoy your own agent with OpenManus!
+## Architecture Overview
 
-We're also excited to introduce [OpenManus-RL](https://github.com/OpenManus/OpenManus-RL), an open-source project dedicated to reinforcement learning (RL)- based (such as GRPO) tuning methods for LLM agents, developed collaboratively by researchers from UIUC and OpenManus.
+OpenManus is built on a modular architecture that separates concerns between agents, flows, tools, and the language model interface. This design enables flexibility, extensibility, and reusability of components.
 
-## Project Demo
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        OpenManus System                         │
+└─────────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                           User Input                            │
+└─────────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                             Flow                                │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐  │
+│  │ Plan Creation│ → │Step Execution│ → │   Plan Finalization  │  │
+│  └─────────────┘    └─────────────┘    └─────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                            Agents                               │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐  │
+│  │    Manus    │    │   Planning   │    │      ToolCall       │  │
+│  └─────────────┘    └─────────────┘    └─────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                            Tools                                │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐  │
+│  │ Web Search  │    │ Python Exec │    │    Browser Use      │  │
+│  └─────────────┘    └─────────────┘    └─────────────────────┘  │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐  │
+│  │ File Saver  │    │  Terminal   │    │      Planning       │  │
+│  └─────────────┘    └─────────────┘    └─────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       Language Model (LLM)                      │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-<video src="https://private-user-images.githubusercontent.com/61239030/420168772-6dcfd0d2-9142-45d9-b74e-d10aa75073c6.mp4?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NDEzMTgwNTksIm5iZiI6MTc0MTMxNzc1OSwicGF0aCI6Ii82MTIzOTAzMC80MjAxNjg3NzItNmRjZmQwZDItOTE0Mi00NWQ5LWI3NGUtZDEwYWE3NTA3M2M2Lm1wND9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTAzMDclMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUwMzA3VDAzMjIzOVomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTdiZjFkNjlmYWNjMmEzOTliM2Y3M2VlYjgyNDRlZDJmOWE3NWZhZjE1MzhiZWY4YmQ3NjdkNTYwYTU5ZDA2MzYmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.UuHQCgWYkh0OQq9qsUWqGsUbhG3i9jcZDAMeHjLt5T4" data-canonical-src="https://private-user-images.githubusercontent.com/61239030/420168772-6dcfd0d2-9142-45d9-b74e-d10aa75073c6.mp4?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NDEzMTgwNTksIm5iZiI6MTc0MTMxNzc1OSwicGF0aCI6Ii82MTIzOTAzMC80MjAxNjg3NzItNmRjZmQwZDItOTE0Mi00NWQ5LWI3NGUtZDEwYWE3NTA3M2M2Lm1wND9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTAzMDclMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUwMzA3VDAzMjIzOVomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTdiZjFkNjlmYWNjMmEzOTliM2Y3M2VlYjgyNDRlZDJmOWE3NWZhZjE1MzhiZWY4YmQ3NjdkNTYwYTU5ZDA2MzYmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.UuHQCgWYkh0OQq9qsUWqGsUbhG3i9jcZDAMeHjLt5T4" controls="controls" muted="muted" class="d-block rounded-bottom-2 border-top width-fit" style="max-height:640px; min-height: 200px"></video>
+## Key Components
+
+### Agents
+
+Agents are the core entities that process user requests and execute actions. OpenManus provides several agent types:
+
+1. **BaseAgent**: The abstract foundation for all agents, providing state management and execution flow.
+2. **ReActAgent**: Implements the Reasoning and Acting pattern for problem-solving.
+3. **ToolCallAgent**: Extends ReActAgent with the ability to use external tools.
+4. **Manus**: The primary user-facing agent that combines multiple capabilities.
+
+### Flows
+
+Flows orchestrate the execution of complex tasks by breaking them down into manageable steps:
+
+1. **BaseFlow**: The foundation for all flows, providing basic flow control.
+2. **PlanningFlow**: Creates and executes plans with multiple steps, using appropriate agents for each step.
+
+### Tools
+
+Tools extend agent capabilities by providing interfaces to external systems and functionality:
+
+1. **Web Search**: Search the internet for information.
+2. **Python Execute**: Run Python code dynamically.
+3. **Browser Use**: Interact with web browsers for web automation.
+4. **File Saver**: Save files to disk.
+5. **Terminal**: Execute terminal commands.
+6. **Planning**: Create and manage execution plans.
+
+### LLM Interface
+
+The LLM (Language Learning Model) interface provides a standardized way to interact with various language models, supporting different providers and configurations.
 
 ## Installation
 
-We provide two installation methods. Method 2 (using uv) is recommended for faster installation and better dependency management.
+We provide two installation methods:
 
 ### Method 1: Using conda
 
-1. Create a new conda environment:
-
 ```bash
+# Create a new conda environment
 conda create -n open_manus python=3.12
 conda activate open_manus
-```
 
-2. Clone the repository:
-
-```bash
+# Clone the repository
 git clone https://github.com/mannaandpoem/OpenManus.git
 cd OpenManus
-```
 
-3. Install dependencies:
-
-```bash
+# Install dependencies
 pip install -r requirements.txt
 ```
 
 ### Method 2: Using uv (Recommended)
 
-1. Install uv (A fast Python package installer and resolver):
-
 ```bash
+# Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
-```
 
-2. Clone the repository:
-
-```bash
+# Clone the repository
 git clone https://github.com/mannaandpoem/OpenManus.git
 cd OpenManus
-```
 
-3. Create a new virtual environment and activate it:
-
-```bash
+# Create and activate virtual environment
 uv venv
 source .venv/bin/activate  # On Unix/macOS
-# Or on Windows:
-# .venv\Scripts\activate
-```
+# Or on Windows: .venv\Scripts\activate
 
-4. Install dependencies:
-
-```bash
+# Install dependencies
 uv pip install -r requirements.txt
 ```
 
 ## Configuration
 
-OpenManus requires configuration for the LLM APIs it uses. Follow these steps to set up your configuration:
+OpenManus requires configuration for the LLM APIs it uses:
 
-1. Create a `config.toml` file in the `config` directory (you can copy from the example):
+1. Create a `config.toml` file in the `config` directory:
 
 ```bash
 cp config/config.example.toml config/config.toml
@@ -107,7 +170,7 @@ api_key = "sk-..."  # Replace with your actual API key
 
 ## Quick Start
 
-One line for run OpenManus:
+Run OpenManus with a single command:
 
 ```bash
 python main.py
@@ -115,19 +178,143 @@ python main.py
 
 Then input your idea via terminal!
 
-For unstable version, you also can run:
+For the planning flow version, you can run:
 
 ```bash
 python run_flow.py
 ```
 
-## How to contribute
+## How It Works
 
-We welcome any friendly suggestions and helpful contributions! Just create issues or submit pull requests.
+OpenManus operates through a series of steps:
 
-Or contact @mannaandpoem via 📧email: mannaandpoem@gmail.com
+1. **User Input**: The user provides a prompt describing the task they want to accomplish.
 
-**Note**: Before submitting a pull request, please use the pre-commit tool to check your changes. Run `pre-commit run --all-files` to execute the checks.
+2. **Planning**: The system analyzes the prompt and creates a structured plan with multiple steps.
+
+3. **Execution**: Each step in the plan is executed by an appropriate agent using various tools.
+
+4. **Tool Usage**: Agents use tools to interact with external systems (web, filesystem, etc.).
+
+5. **Result Generation**: The system compiles the results of all steps and provides a comprehensive response.
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│                 │     │                 │     │                 │
+│   User Input    │────▶│    Planning     │────▶│   Execution     │
+│                 │     │                 │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+                                                        │
+                                                        ▼
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│                 │     │                 │     │                 │
+│     Result      │◀────│  Tool Usage     │◀────│  Step Processing│
+│                 │     │                 │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
+
+### Agent Execution Cycle
+
+Each agent follows a specific execution cycle:
+
+1. **Think**: Analyze the current context and determine the next action.
+2. **Act**: Execute the chosen action using appropriate tools.
+3. **Observe**: Process the results of the action.
+4. **Repeat**: Continue the cycle until the task is complete or maximum steps are reached.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                       Agent Execution Cycle                     │
+└─────────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+                        ┌─────────────────┐
+                        │      Think      │
+                        └─────────────────┘
+                                 │
+                                 ▼
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│                 │     │                 │     │                 │
+│     Observe     │◀────│       Act       │◀────│     Decide      │
+│                 │     │                 │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+        │
+        └───────────────────────┐
+                                ▼
+                        ┌─────────────────┐
+                        │   Task Complete?│
+                        └─────────────────┘
+                          /            \
+                         /              \
+                        /                \
+                       ▼                  ▼
+              ┌─────────────┐      ┌─────────────┐
+              │     Yes     │      │     No      │
+              └─────────────┘      └─────────────┘
+                     │                    │
+                     ▼                    │
+              ┌─────────────┐             │
+              │   Finish    │             │
+              └─────────────┘             │
+                                          │
+                                          ▼
+                                  Back to Think phase
+```
+
+## Available Tools
+
+OpenManus includes a variety of tools that extend agent capabilities:
+
+| Tool | Description |
+|------|-------------|
+| WebSearch | Search the internet for information |
+| PythonExecute | Run Python code dynamically |
+| BrowserUseTool | Interact with web browsers for web automation |
+| FileSaver | Save files to disk |
+| Terminal | Execute terminal commands |
+| Planning | Create and manage execution plans |
+| CreateChatCompletion | Generate text using the LLM |
+| Terminate | End the execution process |
+
+## Examples
+
+OpenManus can handle a wide range of tasks, including:
+
+- Web research and information gathering
+- Data analysis and visualization
+- Content creation and summarization
+- Web automation and interaction
+- File and system operations
+
+Check the `examples` directory for sample use cases.
+
+## Contributing
+
+We welcome contributions to OpenManus! To contribute:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and ensure code quality
+5. Submit a pull request
+
+Before submitting a pull request, please use the pre-commit tool to check your changes:
+
+```bash
+pre-commit run --all-files
+```
+
+## License
+
+OpenManus is released under the MIT License. See the LICENSE file for details.
+
+---
+
+Built with ❤️ by the OpenManus team.
+
+## Project Demo
+
+<video src="https://private-user-images.githubusercontent.com/61239030/420168772-6dcfd0d2-9142-45d9-b74e-d10aa75073c6.mp4?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NDEzMTgwNTksIm5iZiI6MTc0MTMxNzc1OSwicGF0aCI6Ii82MTIzOTAzMC80MjAxNjg3NzItNmRjZmQwZDItOTE0Mi00NWQ5LWI3NGUtZDEwYWE3NTA3M2M2Lm1wND9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTAzMDclMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUwMzA3VDAzMjIzOVomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTdiZjFkNjlmYWNjMmEzOTliM2Y3M2VlYjgyNDRlZDJmOWE3NWZhZjE1MzhiZWY4YmQ3NjdkNTYwYTU5ZDA2MzYmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.UuHQCgWYkh0OQq9qsUWqGsUbhG3i9jcZDAMeHjLt5T4" data-canonical-src="https://private-user-images.githubusercontent.com/61239030/420168772-6dcfd0d2-9142-45d9-b74e-d10aa75073c6.mp4?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NDEzMTgwNTksIm5iZiI6MTc0MTMxNzc1OSwicGF0aCI6Ii82MTIzOTAzMC80MjAxNjg3NzItNmRjZmQwZDItOTE0Mi00NWQ5LWI3NGUtZDEwYWE3NTA3M2M2Lm1wND9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTAzMDclMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUwMzA3VDAzMjIzOVomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTdiZjFkNjlmYWNjMmEzOTliM2Y3M2VlYjgyNDRlZDJmOWE3NWZhZjE1MzhiZWY4YmQ3NjdkNTYwYTU5ZDA2MzYmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.UuHQCgWYkh0OQq9qsUWqGsUbhG3i9jcZDAMeHjLt5T4" controls="controls" muted="muted" class="d-block rounded-bottom-2 border-top width-fit" style="max-height:640px; min-height: 200px"></video>
 
 ## Community Group
 Join our networking group on Feishu and share your experience with other developers!

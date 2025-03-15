@@ -14,32 +14,58 @@ TOOL_CALL_REQUIRED = "Tool calls required but none provided"
 
 
 class ToolCallAgent(ReActAgent):
-    """Base agent class for handling tool/function calls with enhanced abstraction"""
+    """
+    Base agent class for handling tool/function calls with enhanced abstraction.
+    
+    This agent extends the ReActAgent with the ability to use external tools through
+    a standardized interface. It manages tool selection, execution, and result handling,
+    providing a powerful framework for building agents that can interact with various
+    external systems and APIs.
+    
+    The ToolCallAgent is a key component in the OpenManus architecture, enabling
+    agents to leverage a wide range of capabilities through tool integration.
+    """
 
+    # Basic agent identification
     name: str = "toolcall"
     description: str = "an agent that can execute tool calls."
 
-    system_prompt: str = SYSTEM_PROMPT
-    next_step_prompt: str = NEXT_STEP_PROMPT
+    # Prompts that guide the agent's behavior
+    system_prompt: str = SYSTEM_PROMPT  # Defines the agent's overall capabilities and constraints
+    next_step_prompt: str = NEXT_STEP_PROMPT  # Used to determine the next action in a sequence
 
+    # Tool configuration
     available_tools: ToolCollection = ToolCollection(
-        CreateChatCompletion(), Terminate()
+        CreateChatCompletion(),  # Allows creating chat completions with the LLM
+        Terminate()              # Provides a way to terminate execution
     )
-    tool_choices: TOOL_CHOICE_TYPE = ToolChoice.AUTO  # type: ignore
-    special_tool_names: List[str] = Field(default_factory=lambda: [Terminate().name])
+    tool_choices: TOOL_CHOICE_TYPE = ToolChoice.AUTO  # Controls how tools are selected
+    special_tool_names: List[str] = Field(default_factory=lambda: [Terminate().name])  # Tools with special handling
 
+    # Storage for active tool calls
     tool_calls: List[ToolCall] = Field(default_factory=list)
 
-    max_steps: int = 30
-    max_observe: Optional[Union[int, bool]] = None
+    # Execution limits to prevent infinite loops or excessive resource usage
+    max_steps: int = 30  # Maximum number of steps before termination
+    max_observe: Optional[Union[int, bool]] = None  # Maximum observation length
 
     async def think(self) -> bool:
-        """Process current state and decide next actions using tools"""
+        """
+        Process current state and decide next actions using tools.
+        
+        This method represents the 'thinking' phase of the agent's execution cycle,
+        where it analyzes the current context and determines which tools to use next.
+        
+        Returns:
+            bool: True if thinking was successful and actions were determined,
+                  False otherwise
+        """
+        # Add the next step prompt to guide the agent's thinking
         if self.next_step_prompt:
             user_msg = Message.user_message(self.next_step_prompt)
             self.messages += [user_msg]
 
-        # Get response with tool options
+        # Get response with tool options from the LLM
         response = await self.llm.ask_tool(
             messages=self.messages,
             system_msgs=[Message.system_message(self.system_prompt)]

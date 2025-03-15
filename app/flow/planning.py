@@ -13,17 +13,44 @@ from app.tool import PlanningTool
 
 
 class PlanningFlow(BaseFlow):
-    """A flow that manages planning and execution of tasks using agents."""
+    """
+    A flow that manages planning and execution of tasks using agents.
+    
+    The PlanningFlow breaks down complex tasks into a sequence of steps,
+    creates a structured plan, and then executes each step using appropriate
+    agent executors. This approach enables handling of complex, multi-step
+    tasks in a systematic way.
+    
+    The flow maintains state about the current plan, tracks progress through
+    the steps, and provides mechanisms for plan creation, execution, and
+    finalization.
+    """
 
-    llm: LLM = Field(default_factory=lambda: LLM())
-    planning_tool: PlanningTool = Field(default_factory=PlanningTool)
-    executor_keys: List[str] = Field(default_factory=list)
-    active_plan_id: str = Field(default_factory=lambda: f"plan_{int(time.time())}")
-    current_step_index: Optional[int] = None
+    # Core components
+    llm: LLM = Field(default_factory=lambda: LLM())  # LLM for planning operations
+    planning_tool: PlanningTool = Field(default_factory=PlanningTool)  # Tool for plan management
+    
+    # Execution configuration
+    executor_keys: List[str] = Field(default_factory=list)  # Keys of agents that can execute steps
+    
+    # Plan tracking
+    active_plan_id: str = Field(default_factory=lambda: f"plan_{int(time.time())}")  # Unique ID for the current plan
+    current_step_index: Optional[int] = None  # Index of the current step being executed
 
     def __init__(
         self, agents: Union[BaseAgent, List[BaseAgent], Dict[str, BaseAgent]], **data
     ):
+        """
+        Initialize the PlanningFlow with agents and configuration.
+        
+        This constructor handles various ways of specifying agents and ensures
+        that the planning tool and other components are properly initialized.
+        
+        Args:
+            agents: One or more agents to use in the flow, can be a single agent,
+                   a list of agents, or a dictionary mapping names to agents
+            **data: Additional configuration parameters
+        """
         # Set executor keys before super().__init__
         if "executors" in data:
             data["executor_keys"] = data.pop("executors")
@@ -47,7 +74,17 @@ class PlanningFlow(BaseFlow):
     def get_executor(self, step_type: Optional[str] = None) -> BaseAgent:
         """
         Get an appropriate executor agent for the current step.
-        Can be extended to select agents based on step type/requirements.
+        
+        This method selects an agent to execute the current step based on the
+        step type or other criteria. It can be extended to implement more
+        sophisticated agent selection logic.
+        
+        Args:
+            step_type: Optional type of the step to be executed, which can
+                      be used to select a specialized agent
+                      
+        Returns:
+            BaseAgent: The selected executor agent
         """
         # If step type is provided and matches an agent key, use that agent
         if step_type and step_type in self.agents:

@@ -10,17 +10,21 @@ from app.schema import ROLE_TYPE, AgentState, Memory, Message
 
 
 class BaseAgent(BaseModel, ABC):
-    """Abstract base class for managing agent state and execution.
+    """
+    Abstract base class for managing agent state and execution.
 
     Provides foundational functionality for state transitions, memory management,
     and a step-based execution loop. Subclasses must implement the `step` method.
+    
+    This class serves as the foundation for all agent types in the OpenManus system,
+    defining the core agent lifecycle and state management patterns.
     """
 
-    # Core attributes
+    # Core identification attributes
     name: str = Field(..., description="Unique name of the agent")
     description: Optional[str] = Field(None, description="Optional agent description")
 
-    # Prompts
+    # Prompts that guide the agent's behavior
     system_prompt: Optional[str] = Field(
         None, description="System-level instruction prompt"
     )
@@ -28,26 +32,36 @@ class BaseAgent(BaseModel, ABC):
         None, description="Prompt for determining next action"
     )
 
-    # Dependencies
+    # Core dependencies and state management
     llm: LLM = Field(default_factory=LLM, description="Language model instance")
     memory: Memory = Field(default_factory=Memory, description="Agent's memory store")
     state: AgentState = Field(
         default=AgentState.IDLE, description="Current agent state"
     )
 
-    # Execution control
+    # Execution control parameters
     max_steps: int = Field(default=10, description="Maximum steps before termination")
     current_step: int = Field(default=0, description="Current step in execution")
 
+    # Threshold for detecting when the agent is stuck in a loop
     duplicate_threshold: int = 2
 
     class Config:
-        arbitrary_types_allowed = True
+        """Pydantic configuration for the BaseAgent class."""
+        arbitrary_types_allowed = True  # Allow complex types that Pydantic can't validate
         extra = "allow"  # Allow extra fields for flexibility in subclasses
 
     @model_validator(mode="after")
     def initialize_agent(self) -> "BaseAgent":
-        """Initialize agent with default settings if not provided."""
+        """
+        Initialize agent with default settings if not provided.
+        
+        This validator runs after the model is created to ensure all
+        necessary components are properly initialized.
+        
+        Returns:
+            BaseAgent: The initialized agent instance
+        """
         if self.llm is None or not isinstance(self.llm, LLM):
             self.llm = LLM(config_name=self.name.lower())
         if not isinstance(self.memory, Memory):
