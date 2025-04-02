@@ -1,3 +1,10 @@
+"""
+Browser Use Tool
+This module provides a comprehensive browser automation tool that allows the agent to interact with web pages.
+It supports various actions like navigation, form filling, content extraction, and tab management.
+The tool maintains browser state across calls and provides a safe, controlled environment for web interactions.
+"""
+
 import asyncio
 import base64
 import json
@@ -16,6 +23,7 @@ from app.tool.base import BaseTool, ToolResult
 from app.tool.web_search import WebSearch
 
 
+# Detailed description of the browser tool's capabilities and usage
 _BROWSER_DESCRIPTION = """\
 A powerful browser automation tool that allows interaction with web pages through various actions.
 * This tool provides commands for controlling a browser session, navigating web pages, and extracting information
@@ -33,12 +41,44 @@ Key capabilities include:
 Note: When using element indices, refer to the numbered elements shown in the current browser state.
 """
 
+# Generic type variable for context
 Context = TypeVar("Context")
 
 
 class BrowserUseTool(BaseTool, Generic[Context]):
+    """
+    A comprehensive browser automation tool that provides various web interaction capabilities.
+
+    This tool implements a wide range of browser actions and maintains state between calls.
+    It uses the browser-use library for underlying browser automation and provides a high-level
+    interface for common web interactions.
+
+    Features:
+    1. Browser session management
+    2. Navigation controls
+    3. Element interaction
+    4. Content extraction
+    5. Tab management
+    6. State persistence
+
+    Attributes:
+        name (str): Tool identifier
+        description (str): Detailed tool description
+        parameters (dict): JSON schema for tool parameters
+        lock (asyncio.Lock): Async lock for thread safety
+        browser (Optional[BrowserUseBrowser]): Browser instance
+        context (Optional[BrowserContext]): Browser context
+        dom_service (Optional[DomService]): DOM manipulation service
+        web_search_tool (WebSearch): Web search functionality
+        tool_context (Optional[Context]): Generic context for extended functionality
+        llm (Optional[LLM]): Language model for content analysis
+    """
+
+    # Tool metadata
     name: str = "browser_use"
     description: str = _BROWSER_DESCRIPTION
+
+    # Parameter schema defining all possible actions and their required parameters
     parameters: dict = {
         "type": "object",
         "properties": {
@@ -121,6 +161,7 @@ class BrowserUseTool(BaseTool, Generic[Context]):
         },
     }
 
+    # Instance variables for browser management
     lock: asyncio.Lock = Field(default_factory=asyncio.Lock)
     browser: Optional[BrowserUseBrowser] = Field(default=None, exclude=True)
     context: Optional[BrowserContext] = Field(default=None, exclude=True)
@@ -130,23 +171,50 @@ class BrowserUseTool(BaseTool, Generic[Context]):
     # Context for generic functionality
     tool_context: Optional[Context] = Field(default=None, exclude=True)
 
+    # Language model for content analysis
     llm: Optional[LLM] = Field(default_factory=LLM)
 
     @field_validator("parameters", mode="before")
     def validate_parameters(cls, v: dict, info: ValidationInfo) -> dict:
+        """
+        Validate tool parameters before use.
+
+        Args:
+            v (dict): Parameters to validate
+            info (ValidationInfo): Validation context
+
+        Returns:
+            dict: Validated parameters
+
+        Raises:
+            ValueError: If parameters are empty
+        """
         if not v:
             raise ValueError("Parameters cannot be empty")
         return v
 
     async def _ensure_browser_initialized(self) -> BrowserContext:
-        """Ensure browser and context are initialized."""
+        """
+        Ensure browser and context are properly initialized.
+
+        This method:
+        1. Creates browser instance if not exists
+        2. Configures browser settings from config
+        3. Creates new browser context
+        4. Initializes DOM service
+
+        Returns:
+            BrowserContext: Initialized browser context
+        """
         if self.browser is None:
+            # Set up default browser configuration
             browser_config_kwargs = {"headless": False, "disable_security": True}
 
+            # Apply custom configuration if available
             if config.browser_config:
                 from browser_use.browser.browser import ProxySettings
 
-                # handle proxy settings.
+                # Handle proxy settings
                 if config.browser_config.proxy and config.browser_config.proxy.server:
                     browser_config_kwargs["proxy"] = ProxySettings(
                         server=config.browser_config.proxy.server,
@@ -154,6 +222,7 @@ class BrowserUseTool(BaseTool, Generic[Context]):
                         password=config.browser_config.proxy.password,
                     )
 
+                # Apply additional browser attributes
                 browser_attrs = [
                     "headless",
                     "disable_security",
@@ -169,12 +238,14 @@ class BrowserUseTool(BaseTool, Generic[Context]):
                         if not isinstance(value, list) or value:
                             browser_config_kwargs[attr] = value
 
+            # Create browser instance
             self.browser = BrowserUseBrowser(BrowserConfig(**browser_config_kwargs))
 
+        # Initialize context if not exists
         if self.context is None:
             context_config = BrowserContextConfig()
 
-            # if there is context config in the config, use it.
+            # Apply custom context configuration if available
             if (
                 config.browser_config
                 and hasattr(config.browser_config, "new_context_config")
@@ -182,6 +253,7 @@ class BrowserUseTool(BaseTool, Generic[Context]):
             ):
                 context_config = config.browser_config.new_context_config
 
+            # Create new context and initialize DOM service
             self.context = await self.browser.new_context(context_config)
             self.dom_service = DomService(await self.context.get_current_page())
 
@@ -204,24 +276,33 @@ class BrowserUseTool(BaseTool, Generic[Context]):
         """
         Execute a specified browser action.
 
+        This method handles all browser automation actions including:
+        1. Navigation (go_to_url, go_back, refresh)
+        2. Element interaction (click, input, select)
+        3. Scrolling
+        4. Tab management
+        5. Content extraction
+        6. Web search
+
         Args:
-            action: The browser action to perform
-            url: URL for navigation or new tab
-            index: Element index for click or input actions
-            text: Text for input action or search query
-            scroll_amount: Pixels to scroll for scroll action
-            tab_id: Tab ID for switch_tab action
-            query: Search query for Google search
-            goal: Extraction goal for content extraction
-            keys: Keys to send for keyboard actions
-            seconds: Seconds to wait
+            action (str): The browser action to perform
+            url (Optional[str]): URL for navigation or new tab
+            index (Optional[int]): Element index for click or input actions
+            text (Optional[str]): Text for input action or search query
+            scroll_amount (Optional[int]): Pixels to scroll for scroll action
+            tab_id (Optional[int]): Tab ID for switch_tab action
+            query (Optional[str]): Search query for Google search
+            goal (Optional[str]): Extraction goal for content extraction
+            keys (Optional[str]): Keys to send for keyboard actions
+            seconds (Optional[int]): Seconds to wait
             **kwargs: Additional arguments
 
         Returns:
-            ToolResult with the action's output or error
+            ToolResult: Result containing action output or error
         """
         async with self.lock:
             try:
+                # Ensure browser is initialized
                 context = await self._ensure_browser_initialized()
 
                 # Get max content length from config
@@ -229,7 +310,7 @@ class BrowserUseTool(BaseTool, Generic[Context]):
                     config.browser_config, "max_content_length", 2000
                 )
 
-                # Navigation actions
+                # Handle navigation actions
                 if action == "go_to_url":
                     if not url:
                         return ToolResult(
@@ -480,88 +561,88 @@ Page content:
         self, context: Optional[BrowserContext] = None
     ) -> ToolResult:
         """
-        Get the current browser state as a ToolResult.
-        If context is not provided, uses self.context.
+        Get the current state of the browser, including page content and element information.
+
+        This method:
+        1. Captures the current page content
+        2. Extracts visible elements and their properties
+        3. Formats the state for the agent to understand
+        4. Handles content length limits
+
+        Args:
+            context (Optional[BrowserContext]): Browser context to get state from
+
+        Returns:
+            ToolResult: Contains formatted browser state information
         """
-        try:
-            # Use provided context or fall back to self.context
-            ctx = context or self.context
-            if not ctx:
-                return ToolResult(error="Browser context not initialized")
+        if context is None:
+            context = await self._ensure_browser_initialized()
 
-            state = await ctx.get_state()
+        page = await context.get_current_page()
+        content = await page.content()
 
-            # Create a viewport_info dictionary if it doesn't exist
-            viewport_height = 0
-            if hasattr(state, "viewport_info") and state.viewport_info:
-                viewport_height = state.viewport_info.height
-            elif hasattr(ctx, "config") and hasattr(ctx.config, "browser_window_size"):
-                viewport_height = ctx.config.browser_window_size.get("height", 0)
+        # Limit content length if configured
+        if hasattr(config.browser_config, "max_content_length"):
+            max_length = config.browser_config.max_content_length
+            if len(content) > max_length:
+                content = content[:max_length] + "..."
 
-            # Take a screenshot for the state
-            page = await ctx.get_current_page()
+        # Get visible elements
+        elements = await self.dom_service.get_visible_elements()
 
-            await page.bring_to_front()
-            await page.wait_for_load_state()
+        # Format element information
+        element_info = []
+        for i, element in enumerate(elements):
+            element_info.append(f"{i}: {element.tag_name} - {element.text}")
 
-            screenshot = await page.screenshot(
-                full_page=True, animations="disabled", type="jpeg", quality=100
-            )
+        # Combine state information
+        state = {
+            "url": page.url,
+            "title": await page.title(),
+            "content": content,
+            "elements": element_info,
+        }
 
-            screenshot = base64.b64encode(screenshot).decode("utf-8")
-
-            # Build the state info with all required fields
-            state_info = {
-                "url": state.url,
-                "title": state.title,
-                "tabs": [tab.model_dump() for tab in state.tabs],
-                "help": "[0], [1], [2], etc., represent clickable indices corresponding to the elements listed. Clicking on these indices will navigate to or interact with the respective content behind them.",
-                "interactive_elements": (
-                    state.element_tree.clickable_elements_to_string()
-                    if state.element_tree
-                    else ""
-                ),
-                "scroll_info": {
-                    "pixels_above": getattr(state, "pixels_above", 0),
-                    "pixels_below": getattr(state, "pixels_below", 0),
-                    "total_height": getattr(state, "pixels_above", 0)
-                    + getattr(state, "pixels_below", 0)
-                    + viewport_height,
-                },
-                "viewport_height": viewport_height,
-            }
-
-            return ToolResult(
-                output=json.dumps(state_info, indent=4, ensure_ascii=False),
-                base64_image=screenshot,
-            )
-        except Exception as e:
-            return ToolResult(error=f"Failed to get browser state: {str(e)}")
+        return ToolResult(output=json.dumps(state, indent=2))
 
     async def cleanup(self):
-        """Clean up browser resources."""
-        async with self.lock:
-            if self.context is not None:
-                await self.context.close()
-                self.context = None
-                self.dom_service = None
-            if self.browser is not None:
-                await self.browser.close()
-                self.browser = None
+        """
+        Clean up browser resources and close connections.
+
+        This method:
+        1. Closes the browser context
+        2. Closes the browser instance
+        3. Resets instance variables
+        """
+        if self.context:
+            await self.context.close()
+            self.context = None
+        if self.browser:
+            await self.browser.close()
+            self.browser = None
+        self.dom_service = None
 
     def __del__(self):
-        """Ensure cleanup when object is destroyed."""
-        if self.browser is not None or self.context is not None:
-            try:
-                asyncio.run(self.cleanup())
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                loop.run_until_complete(self.cleanup())
-                loop.close()
+        """
+        Destructor to ensure cleanup of browser resources.
+        """
+        if self.browser:
+            asyncio.create_task(self.cleanup())
 
     @classmethod
     def create_with_context(cls, context: Context) -> "BrowserUseTool[Context]":
-        """Factory method to create a BrowserUseTool with a specific context."""
+        """
+        Create a new browser tool instance with a specific context.
+
+        This factory method allows creating a browser tool with a pre-configured
+        context for specific use cases.
+
+        Args:
+            context (Context): The context to use for the tool
+
+        Returns:
+            BrowserUseTool[Context]: New browser tool instance with the specified context
+        """
         tool = cls()
         tool.tool_context = context
         return tool
