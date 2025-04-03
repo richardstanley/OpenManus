@@ -12,7 +12,7 @@ graph TD
         C --> D[OpenManus Agents]
         D --> E[Elasticache Redis]
         D --> F[S3 Bucket]
-        D --> G[DocumentDB]
+        D --> G[DynamoDB]
         H[CloudWatch] --> D
         I[CloudTrail] --> D
     end
@@ -30,7 +30,7 @@ graph TD
 
 2. **Storage**
    - S3 for file storage and tool outputs
-   - DocumentDB for state management
+   - DynamoDB for state management
    - Elasticache Redis for caching
 
 3. **Networking**
@@ -50,7 +50,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as docdb from 'aws-cdk-lib/aws-docdb';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as elasticache from 'aws-cdk-lib/aws-elasticache';
 
 export class OpenManusStack extends cdk.Stack {
@@ -78,13 +78,27 @@ export class OpenManusStack extends cdk.Stack {
       desiredCount: 2,
     });
 
-    // DocumentDB
-    const docdbCluster = new docdb.DatabaseCluster(this, 'OpenManusDB', {
-      masterUser: {
-        username: 'admin',
-      },
-      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
-      vpc,
+    // DynamoDB Tables
+    const agentStateTable = new dynamodb.Table(this, 'AgentState', {
+      partitionKey: { name: 'agentId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'timestamp', type: dynamodb.AttributeType.NUMBER },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecovery: true,
+      stream: dynamodb.StreamViewType.NEW_IMAGE,
+    });
+
+    const toolStateTable = new dynamodb.Table(this, 'ToolState', {
+      partitionKey: { name: 'toolId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'executionId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecovery: true,
+    });
+
+    const memoryTable = new dynamodb.Table(this, 'Memory', {
+      partitionKey: { name: 'agentId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'memoryId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecovery: true,
     });
 
     // Elasticache Redis
@@ -100,6 +114,12 @@ export class OpenManusStack extends cdk.Stack {
       versioned: true,
       encryption: s3.BucketEncryption.S3_MANAGED,
     });
+
+    // Grant permissions to Fargate service
+    agentStateTable.grantReadWriteData(fargateService.taskDefinition.taskRole);
+    toolStateTable.grantReadWriteData(fargateService.taskDefinition.taskRole);
+    memoryTable.grantReadWriteData(fargateService.taskDefinition.taskRole);
+    bucket.grantReadWrite(fargateService.taskDefinition.taskRole);
   }
 }
 ```
@@ -138,7 +158,7 @@ graph TD
         C --> D[OpenManus Agents]
         D --> E[Elasticache Redis]
         D --> F[S3 Bucket]
-        D --> G[DocumentDB]
+        D --> G[DynamoDB]
         D --> H[DynamoDB]
         D --> I[Elasticsearch]
         D --> J[Kinesis]
@@ -226,7 +246,7 @@ graph TD
         C --> D[OpenManus Agents]
         D --> E[Azure Cache for Redis]
         D --> F[Azure Blob Storage]
-        D --> G[Azure Cosmos DB]
+        D --> G[Cosmos DB Table API]
         H[Azure Monitor] --> D
         I[Azure Security Center] --> D
     end
@@ -244,7 +264,7 @@ graph TD
 
 2. **Storage**
    - Azure Blob Storage for file storage
-   - Cosmos DB for state management
+   - Cosmos DB Table API for state management
    - Azure Cache for Redis
 
 3. **Networking**
@@ -301,16 +321,41 @@ resource "azurerm_cosmosdb_account" "db" {
   location            = azurerm_resource_group.openmanus.location
   resource_group_name = azurerm_resource_group.openmanus.name
   offer_type         = "Standard"
-  kind               = "MongoDB"
+  kind               = "GlobalDocumentDB"
 
   consistency_policy {
     consistency_level = "Session"
+  }
+
+  capabilities {
+    name = "EnableTable"
   }
 
   geo_location {
     location          = azurerm_resource_group.openmanus.location
     failover_priority = 0
   }
+}
+
+resource "azurerm_cosmosdb_table" "agent_state" {
+  name                = "agent-state"
+  resource_group_name = azurerm_resource_group.openmanus.name
+  account_name        = azurerm_cosmosdb_account.db.name
+  throughput         = 400
+}
+
+resource "azurerm_cosmosdb_table" "tool_state" {
+  name                = "tool-state"
+  resource_group_name = azurerm_resource_group.openmanus.name
+  account_name        = azurerm_cosmosdb_account.db.name
+  throughput         = 400
+}
+
+resource "azurerm_cosmosdb_table" "memory" {
+  name                = "memory"
+  resource_group_name = azurerm_resource_group.openmanus.name
+  account_name        = azurerm_cosmosdb_account.db.name
+  throughput         = 400
 }
 
 resource "azurerm_redis_cache" "cache" {
@@ -359,7 +404,7 @@ graph TD
         C --> D[OpenManus Agents]
         D --> E[Azure Cache for Redis]
         D --> F[Azure Blob Storage]
-        D --> G[Azure Cosmos DB]
+        D --> G[Cosmos DB Table API]
         D --> H[Azure Table Storage]
         D --> I[Azure Search]
         D --> J[Event Hubs]
@@ -492,7 +537,7 @@ graph TD
         C --> D[OpenManus Agents]
         D --> E[Memorystore Redis]
         D --> F[Cloud Storage]
-        D --> G[Firestore]
+        D --> G[Cloud Bigtable]
         H[Cloud Monitoring] --> D
         I[Cloud Security Command Center] --> D
     end
@@ -510,7 +555,7 @@ graph TD
 
 2. **Storage**
    - Cloud Storage for file storage
-   - Firestore for state management
+   - Cloud Bigtable for state management
    - Memorystore for Redis
 
 3. **Networking**
@@ -565,10 +610,40 @@ resource "google_cloud_run_service" "agents" {
   }
 }
 
-resource "google_firestore_database" "database" {
-  name     = "(default)"
-  location = "us-central"
-  type     = "FIRESTORE_NATIVE"
+resource "google_bigtable_instance" "state" {
+  name = "openmanus-state"
+
+  cluster {
+    cluster_id   = "state-cluster"
+    zone         = "us-central1-a"
+    num_nodes    = 3
+    storage_type = "SSD"
+  }
+
+  cluster {
+    cluster_id   = "state-cluster-2"
+    zone         = "us-central1-b"
+    num_nodes    = 3
+    storage_type = "SSD"
+  }
+}
+
+resource "google_bigtable_table" "agent_state" {
+  name          = "agent-state"
+  instance_name = google_bigtable_instance.state.name
+  split_keys    = ["agent1", "agent2", "agent3"]
+}
+
+resource "google_bigtable_table" "tool_state" {
+  name          = "tool-state"
+  instance_name = google_bigtable_instance.state.name
+  split_keys    = ["tool1", "tool2", "tool3"]
+}
+
+resource "google_bigtable_table" "memory" {
+  name          = "memory"
+  instance_name = google_bigtable_instance.state.name
+  split_keys    = ["memory1", "memory2", "memory3"]
 }
 
 resource "google_redis_instance" "cache" {
@@ -619,10 +694,9 @@ graph TD
         C --> D[OpenManus Agents]
         D --> E[Memorystore Redis]
         D --> F[Cloud Storage]
-        D --> G[Firestore]
-        D --> H[Cloud Bigtable]
-        D --> I[Cloud Search]
-        D --> J[Pub/Sub]
+        D --> G[Cloud Bigtable]
+        D --> H[Cloud Search]
+        D --> I[Pub/Sub]
         K[Cloud Monitoring] --> D
         L[Cloud Security Command Center] --> D
         M[Browser Automation] --> N[Browser Pool]
@@ -744,7 +818,7 @@ graph TD
 |---------|-----|-------|-----|
 | Container Service | ECS Fargate | Container Instances | Cloud Run |
 | Serverless Functions | Lambda | Azure Functions | Cloud Functions |
-| NoSQL Database | DocumentDB | Cosmos DB | Firestore |
+| NoSQL Database | DynamoDB | Cosmos DB | Firestore |
 | Caching | Elasticache | Azure Cache for Redis | Memorystore |
 | Object Storage | S3 | Blob Storage | Cloud Storage |
 | Load Balancing | ALB | Application Gateway | Cloud Load Balancing |
@@ -756,7 +830,7 @@ graph TD
 
 1. **For AWS Users**
    - Use ECS Fargate for container management
-   - Leverage DocumentDB for state management
+   - Leverage DynamoDB for state management
    - Implement CDK for infrastructure management
 
 2. **For Azure Users**
@@ -773,7 +847,7 @@ graph TD
 
 1. **AWS**
    - ECS Fargate: ~$0.04 per vCPU per hour
-   - DocumentDB: ~$0.10 per GB per month
+   - DynamoDB: ~$0.10 per GB per month
    - S3: ~$0.023 per GB per month
 
 2. **Azure**
@@ -1072,18 +1146,18 @@ export class StateManagement extends cdk.Stack {
 | Service | Configuration | Monthly Cost |
 |---------|--------------|--------------|
 | Container Instances | 5 instances, 4GB RAM, 2 vCPU | $300.00 |
-| Table Storage | 50GB storage, 1M transactions | $25.00 |
+| Cosmos DB Table API | 400 RU/s, 50GB storage | $45.00 |
 | Azure Search | S1 tier, 1 replica | $73.00 |
 | Event Hubs | Standard tier, 2 TUs | $100.00 |
 | Blob Storage | 100GB storage, 1M requests | $2.00 |
 | Monitor | Logs, metrics, alerts | $30.00 |
-| **Total** | | **$530.00** |
+| **Total** | | **$550.00** |
 
 #### GCP Costs
 | Service | Configuration | Monthly Cost |
 |---------|--------------|--------------|
 | Cloud Run | 5 instances, 4GB RAM, 2 vCPU | $250.00 |
-| Bigtable | 3 nodes, 50GB storage | $180.00 |
+| Cloud Bigtable | 6 nodes, 50GB storage | $180.00 |
 | Cloud Search | Standard tier | $70.00 |
 | Pub/Sub | 1M messages, 100GB storage | $50.00 |
 | Cloud Storage | 100GB storage, 1M requests | $2.00 |
@@ -1146,7 +1220,7 @@ export class StateManagement extends cdk.Stack {
 
 | Scale Factor | AWS Cost | Azure Cost | GCP Cost |
 |--------------|----------|------------|----------|
-| 1x (Current) | $695.50 | $530.00 | $577.00 |
+| 1x (Current) | $695.50 | $550.00 | $577.00 |
 | 2x | $1,200.00 | $900.00 | $950.00 |
 | 5x | $2,800.00 | $2,100.00 | $2,200.00 |
 | 10x | $5,000.00 | $3,800.00 | $4,000.00 |
